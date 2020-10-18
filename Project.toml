@@ -1,0 +1,4 @@
+name = "scalarConservationLaws"
+uuid = "4a2f1122-f3a3-49e8-98c4-2ac24fe47f52"
+authors = ["Felix Benning <felix.benning@gmail.com>"]
+version = "0.1.0"
