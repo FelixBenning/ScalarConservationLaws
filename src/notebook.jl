@@ -69,18 +69,22 @@ md"### N"
 md"### $\rho_L$"
 
 # ╔═╡ da5a1f30-1213-11eb-15d0-c9d0aef75e19
-@bind ρ_L Slider(0:0.05:1, default = 0.2, show_value=true)
+@bind ρ_L Slider(0.05:0.05:1, default = 0.2, show_value=true)
 
 # ╔═╡ 94b0b7a0-1213-11eb-0679-9786e2282683
 md"### $\rho_R$"
 
 # ╔═╡ a159fd3e-1213-11eb-1955-59d0a8180e96
-@bind ρ_R Slider(0:0.05:1, default = 0.8, show_value=true)
+@bind ρ_R Slider(0.05:0.05:1, default = 0.8, show_value=true)
 
-# ╔═╡ 2ec1f1c0-1209-11eb-1cc2-adcc97ec8d9b
+# ╔═╡ d3c9a17e-1237-11eb-0629-898fb473e2d7
 begin
-    solution = follow_leader_solve(N, ρ_L, ρ_R)
-    plot(solution, legend=false)
+	solution = follow_leader_solve(N,ρ_L, ρ_R)
+	p1 = plot()
+	for idx in 1:length(solution.u[1])
+		plot!(p1, [x[idx] for x in solution.u],solution.t, legend=false)
+	end
+	p1
 end
 
 # ╔═╡ 92140930-1212-11eb-2d09-e5985aa73786
@@ -89,18 +93,12 @@ md"# Exercise 2"
 # ╔═╡ 9ab249b0-1219-11eb-3a5b-917e0a0f82f5
 import Pkg; Pkg.add("Zygote")
 
-# ╔═╡ 66c49bb0-121b-11eb-36b4-a925d39c30f3
-f(x) = x^2
-
-# ╔═╡ 6dfa28a0-121b-11eb-18c0-9fa516f82579
-f'(2)
-
 # ╔═╡ b29dbd20-1214-11eb-2317-175b6d323e6b
 """ assume flux concave """
 function riemannProblem(density_left, density_right, flux, dflux, inv_dflux)
 	if density_left < density_right
 		s = (flux(density_right) - flux(density_left))/(density_right - density_left)
-		density(x,t) = begin
+		return (x,t) -> begin
 			if x < s*t
 				return density_left
 			else
@@ -108,7 +106,7 @@ function riemannProblem(density_left, density_right, flux, dflux, inv_dflux)
 			end
 		end
 	else
-		density(x,t) = begin
+		return (x,t) -> begin
 			if x <= dflux(density_left) *t
 				return density_left
 			elseif x >= dflux(density_right) * t
@@ -118,7 +116,6 @@ function riemannProblem(density_left, density_right, flux, dflux, inv_dflux)
 			end
 		end
 	end
-	return density
 end
 
 # ╔═╡ 7559cea0-1222-11eb-26ea-a9621376ac85
@@ -136,29 +133,55 @@ md"### $\rho_R$"
 # ╔═╡ 9c554720-1220-11eb-39d1-6103b1cd7a3d
 begin
 	flux(ρ) = ρ*(1-ρ)
-	dflux(ρ) = 1-2*ρ
 	inv_dflux(x) = (1-x)/2
-	exact_solution = riemannProblem(density_left, density_right, flux, dflux, inv_dflux)
+	exact_solution = riemannProblem(density_left, density_right, flux, flux', inv_dflux)
 end
+
+# ╔═╡ 6ee9e100-1235-11eb-3b42-93e1088617cb
+
 
 # ╔═╡ 6b290da2-1223-11eb-1fbf-73eb07577b0d
-@bind steppower Slider(1:5)
-
-# ╔═╡ b0573c9e-1221-11eb-1f70-7dc5bdb9b80c
-begin
-	stepsize = 10^steppower
-	times = 0:1/stepsize:1.0
-	"times = $(times)"
-end
+@bind steppower Slider(1:5, default=2, show_value=true)
 
 # ╔═╡ e1a41620-1221-11eb-0d09-773c79dd9728
-md"### Steps: $(stepsize)"
+begin
+	stepsize = 10^steppower
+	steps = -1.0:1/stepsize:1.0
+	md"### Interpolation steps: $(2*stepsize)"
+end
+
+# ╔═╡ 49262c90-1234-11eb-1eab-d19a2c86da9e
+@bind T Slider(1:0.5:5, default = 2, show_value=true)
+
+# ╔═╡ 26d9a810-1234-11eb-09ee-8fbab86aba3d
+md"until T: $(T)" 
+
+# ╔═╡ 74208720-1229-11eb-3d0e-9f4373534945
+@bind timesteps Slider(1:10, default=5, show_value=true)
+
+# ╔═╡ 2790c410-1229-11eb-3ab9-37512e7dc4c3
+begin
+	times = 0:T/timesteps:T
+	md"### Times: $(times)"
+end
+
+# ╔═╡ 9d0daa8e-1234-11eb-0739-2d340e62799f
+md"Steps: $(timesteps)"
 
 # ╔═╡ 47582120-1225-11eb-32f9-ab9eebb65767
-plot(times, [exact_solution(0.5,t) for t in times])
+begin
+	p = plot()
+	for t in times
+		plot!(p, steps, [exact_solution(x,t) for x in steps], label = "t=$(t)", linetype=:steppost)
+	end
+	p
+end
+
+# ╔═╡ 15ec5bb0-122a-11eb-03ca-55cb5d64ae14
+@bind single_time Slider(0:0.05:5, default = 0, show_value=true)
 
 # ╔═╡ a04023a0-1225-11eb-06ce-554f90454e1d
-2.^1:10
+plot(steps, [exact_solution(x,single_time) for x in steps], label="ρ(x,$(single_time))", linetype=:steppost, ylims=Tuple(sort([density_left, density_right])))
 
 # ╔═╡ 9cc1e970-1211-11eb-1833-81bd4c962dee
 md"# Exercise 3"
@@ -175,25 +198,29 @@ HTML("<style> main { max-width:1000px; } </style> ")
 # ╟─0cc137c0-1213-11eb-23ca-5b113e5aafb1
 # ╟─ebb1ee30-1212-11eb-0a1f-a11e6b2c4c38
 # ╟─5a2ed7b2-1213-11eb-00c8-d18c59de2236
-# ╟─da5a1f30-1213-11eb-15d0-c9d0aef75e19
+# ╠═da5a1f30-1213-11eb-15d0-c9d0aef75e19
 # ╟─94b0b7a0-1213-11eb-0679-9786e2282683
-# ╟─a159fd3e-1213-11eb-1955-59d0a8180e96
-# ╠═2ec1f1c0-1209-11eb-1cc2-adcc97ec8d9b
+# ╠═a159fd3e-1213-11eb-1955-59d0a8180e96
+# ╠═d3c9a17e-1237-11eb-0629-898fb473e2d7
 # ╟─92140930-1212-11eb-2d09-e5985aa73786
 # ╠═9ab249b0-1219-11eb-3a5b-917e0a0f82f5
 # ╠═acc97ba0-1219-11eb-26cf-3999a572327e
-# ╠═66c49bb0-121b-11eb-36b4-a925d39c30f3
-# ╠═6dfa28a0-121b-11eb-18c0-9fa516f82579
 # ╠═b29dbd20-1214-11eb-2317-175b6d323e6b
 # ╟─7559cea0-1222-11eb-26ea-a9621376ac85
 # ╟─865ecd40-1222-11eb-0cdf-e109bea249c0
 # ╟─e5587620-1222-11eb-03f3-f5aba45424c9
 # ╟─ed920590-1222-11eb-3667-e1d9354db5b3
 # ╠═9c554720-1220-11eb-39d1-6103b1cd7a3d
+# ╠═6ee9e100-1235-11eb-3b42-93e1088617cb
 # ╟─e1a41620-1221-11eb-0d09-773c79dd9728
 # ╟─6b290da2-1223-11eb-1fbf-73eb07577b0d
-# ╟─b0573c9e-1221-11eb-1f70-7dc5bdb9b80c
+# ╠═2790c410-1229-11eb-3ab9-37512e7dc4c3
+# ╟─26d9a810-1234-11eb-09ee-8fbab86aba3d
+# ╠═49262c90-1234-11eb-1eab-d19a2c86da9e
+# ╟─9d0daa8e-1234-11eb-0739-2d340e62799f
+# ╠═74208720-1229-11eb-3d0e-9f4373534945
 # ╠═47582120-1225-11eb-32f9-ab9eebb65767
+# ╠═15ec5bb0-122a-11eb-03ca-55cb5d64ae14
 # ╠═a04023a0-1225-11eb-06ce-554f90454e1d
 # ╟─9cc1e970-1211-11eb-1833-81bd4c962dee
 # ╠═8d4929c0-1209-11eb-0751-7ba877da1f1f
