@@ -13,9 +13,6 @@ macro bind(def, element)
     end
 end
 
-# ╔═╡ f72e0a00-1208-11eb-3b00-337530f05d71
-using DifferentialEquations
-
 # ╔═╡ 552e37b0-1209-11eb-2fff-4b0cc5806afd
 begin
 	using Plots
@@ -25,8 +22,8 @@ end
 # ╔═╡ acc97ba0-1219-11eb-26cf-3999a572327e
 using Zygote
 
-# ╔═╡ e7081df0-124e-11eb-158f-fb7b47dfd45b
-using Polynomials
+# ╔═╡ f72e0a00-1208-11eb-3b00-337530f05d71
+import DifferentialEquations: ODEProblem, solve
 
 # ╔═╡ 8d9d1520-1214-11eb-33f0-535efa40ff15
 md"# Exercise 1"
@@ -201,6 +198,9 @@ md"# Exercise 3"
 # ╔═╡ df746b70-124e-11eb-37d6-4148a9899621
 Pkg.add("Polynomials")
 
+# ╔═╡ e7081df0-124e-11eb-158f-fb7b47dfd45b
+import Polynomials
+
 # ╔═╡ 62594092-1242-11eb-2fc1-8b86a7c8beb9
 function local_density(micro_solution, L)
 	N = length(micro_solution[1])
@@ -226,6 +226,18 @@ function l1_error(micro_solution, times, L, exact_solution)
 	return err
 end
 
+# ╔═╡ 70ced9d0-16b8-11eb-2cd3-295595c0fb33
+md"### $\rho_L$"
+
+# ╔═╡ 8f37bb80-16b8-11eb-1faf-4f8d7a5fc477
+@bind rho_L Slider(0.05:0.05:1, default = 0.2, show_value=true)
+
+# ╔═╡ 7dbb69fe-16b8-11eb-3b02-63b46e8bce9b
+md"### $\rho_R$"
+
+# ╔═╡ 96790840-16b8-11eb-3fbc-71c02308bf75
+@bind rho_R Slider(0.05:0.05:1, default = 0.8, show_value=true)
+
 # ╔═╡ 57441200-124e-11eb-2707-67b080d99934
 md"### T"
 
@@ -235,7 +247,7 @@ md"### T"
 # ╔═╡ c88f5000-1249-11eb-1428-bb7ca494fd97
 begin
 	n_vector = [50,100,200,300,400,800]
-	micro_solutions = [follow_leader_solve(n, ρ_L, ρ_R, T_ex3) for n in n_vector]
+	micro_solutions = [follow_leader_solve(n, rho_L, rho_R, T_ex3) for n in n_vector]
 	err = [l1_error(m_sol.u, m_sol.t, 1/n, exact_solution) for (n, m_sol) in zip(n_vector, micro_solutions)]
 	plot(log.(n_vector), [log(x[T]) for x in err], label="log(N)-log(err[T])")
 end
@@ -244,10 +256,10 @@ end
 md"### degree"
 
 # ╔═╡ 36cc3100-124f-11eb-071c-a3af8e47c1a2
-@bind degree Slider(1:length(n_vector)-1, default=1, show_value=true)
+@bind deg Slider(1:length(n_vector)-1, default=1, show_value=true)
 
 # ╔═╡ f2171480-124e-11eb-1850-4f30b39bc919
-Polynomials.fit(log.(n_vector), [log(x[T]) for x in err], degree)
+Polynomials.fit(log.(n_vector), [log(x[T]) for x in err], deg)
 
 # ╔═╡ 8d4929c0-1209-11eb-0751-7ba877da1f1f
 HTML("<style> main { max-width:1000px; } </style> ")
@@ -292,10 +304,14 @@ HTML("<style> main { max-width:1000px; } </style> ")
 # ╠═e7081df0-124e-11eb-158f-fb7b47dfd45b
 # ╠═62594092-1242-11eb-2fc1-8b86a7c8beb9
 # ╠═979c5320-1245-11eb-13b0-7b09cfa70c0b
+# ╟─70ced9d0-16b8-11eb-2cd3-295595c0fb33
+# ╟─8f37bb80-16b8-11eb-1faf-4f8d7a5fc477
+# ╟─7dbb69fe-16b8-11eb-3b02-63b46e8bce9b
+# ╟─96790840-16b8-11eb-3fbc-71c02308bf75
 # ╟─57441200-124e-11eb-2707-67b080d99934
 # ╠═3f027700-124d-11eb-2fb6-5f4409ac3c82
 # ╠═c88f5000-1249-11eb-1428-bb7ca494fd97
 # ╟─1fabc800-124f-11eb-39b1-2708effb11c3
-# ╠═36cc3100-124f-11eb-071c-a3af8e47c1a2
+# ╟─36cc3100-124f-11eb-071c-a3af8e47c1a2
 # ╠═f2171480-124e-11eb-1850-4f30b39bc919
-# ╠═8d4929c0-1209-11eb-0751-7ba877da1f1f
+# ╟─8d4929c0-1209-11eb-0751-7ba877da1f1f
