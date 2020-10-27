@@ -1,1 +1,1 @@
-julia ./src/scalarConservationLaws.jl
+julia --project=. ./src/scalarConservationLaws.jl
