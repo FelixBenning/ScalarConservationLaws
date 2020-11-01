@@ -15,8 +15,9 @@ end
 
 # ╔═╡ d456a4d0-1c33-11eb-3c70-599cd64c2c83
 begin
+	using Printf: @sprintf
 	using Zygote
-	using Plots: plot
+	using Plots: plot, plot!
 	using Roots: find_zero
 	using PlutoUI
 end
@@ -28,27 +29,22 @@ md"# Exercise 1"
 function _godunov_solve(
 	flux, start_flux, stop_flux, discr, density_0, interval_lengths, times, rho_star
 )
-	time_diffs = diff(times)
-	
-
 	density = Array{Float64, 2}(undef, length(density_0), length(times))
 	density[:,1] = density_0
-	for (idx, delta_t) in enumerate(time_diffs)
+	for (idx, delta_t) in enumerate(diff(times))
 		den = density[:,idx]
+		
+		# flux on the interval borders
 		b_fl = Array{Float64,1}(undef, length(density_0)+1)
 		b_fl[2:end-1]=[flux(rho_star(x,y)) for (x,y) in zip(den[1:end-1], den[2:end])]
-		
 		b_fl[1] = start_flux(times[idx])
 		b_fl[end] = stop_flux(times[idx])
 		
-		incr = -diff(b_fl)
+		incr = -diff(b_fl) # influx into a cell
 		density[:,idx+1] = den .+ delta_t./interval_lengths .* incr
 	end
 	return (times, discr, density)
 end
-
-# ╔═╡ bce334d0-1c6a-11eb-2ea5-454581da7761
-Array{Float64,2}(undef, 2,3)
 
 # ╔═╡ 216e96c0-1c4c-11eb-0ae0-d7af7fc2f12e
 function rho_star_from_flux(flux, roothint=0)
@@ -153,7 +149,7 @@ md"### $\rho_R$"
 md"### Time Horizon"
 
 # ╔═╡ 8c81f5d0-1c54-11eb-00f3-2fbd04ded608
-@bind time_horizon Slider(0.2:0.2:3, default=1, show_value=true)
+@bind time_horizon Slider(0.2:0.2:6, default=1, show_value=true)
 
 # ╔═╡ 2441afc0-1c53-11eb-2f42-215a417f4dde
 begin
@@ -169,29 +165,28 @@ begin
 		flux, start_flux, stop_flux, start, stop, density_0, time_horizon)
 end
 
+# ╔═╡ 6aaa0640-1c6e-11eb-31dd-d7223b7df72a
+idx_of_t(t) = findfirst(x->x>=t,times)
+
 # ╔═╡ 11073d10-1c5f-11eb-078b-714e16d80478
-plot(discr, density[:,end], linetype=:steppost)
+begin
+	p = plot()
+	for t in 0:time_horizon/3-0.00001:time_horizon
+		plot!(discr, density[:,idx_of_t(t)], linetype=:steppost, label="t=$(@sprintf "%0.2f" t)" )
+	end
+	p
+end
 
-# ╔═╡ b43e09c2-1c53-11eb-1d5a-ef39a0013ff9
-false ? 5 : 2
+# ╔═╡ 9be3f732-1c72-11eb-0e6f-a1d96e46797a
+md"# Exercise2"
 
-# ╔═╡ 72c664d0-1c2e-11eb-1ddc-b1282c7e8e32
-a =[1.0,2,3]
+# ╔═╡ a399febe-1c72-11eb-05ad-85a8182dde8a
 
-# ╔═╡ 20161530-1c58-11eb-222a-2d4473330f47
-typeof(a)
-
-# ╔═╡ df8ef550-1c33-11eb-3c99-7fde08fab8b1
-Δx = 2
-
-# ╔═╡ e35cb870-1c2e-11eb-314c-b1395544a443
-push!([1,2], [1,2][end] + 0)
 
 # ╔═╡ Cell order:
 # ╟─1f4955c0-1b9c-11eb-2e53-c10ebcb1ff07
 # ╠═d456a4d0-1c33-11eb-3c70-599cd64c2c83
 # ╠═41175b30-1c3b-11eb-10d5-91414cfbb583
-# ╠═bce334d0-1c6a-11eb-2ea5-454581da7761
 # ╠═216e96c0-1c4c-11eb-0ae0-d7af7fc2f12e
 # ╠═430325e0-1b9c-11eb-26f7-93813a1b9698
 # ╠═60952d50-1c51-11eb-09ed-115f0cb1f8d7
@@ -203,9 +198,7 @@ push!([1,2], [1,2][end] + 0)
 # ╟─83e3ff40-1c54-11eb-2810-a5f306cf9557
 # ╟─8c81f5d0-1c54-11eb-00f3-2fbd04ded608
 # ╠═2441afc0-1c53-11eb-2f42-215a417f4dde
+# ╠═6aaa0640-1c6e-11eb-31dd-d7223b7df72a
 # ╠═11073d10-1c5f-11eb-078b-714e16d80478
-# ╠═b43e09c2-1c53-11eb-1d5a-ef39a0013ff9
-# ╠═72c664d0-1c2e-11eb-1ddc-b1282c7e8e32
-# ╠═20161530-1c58-11eb-222a-2d4473330f47
-# ╠═df8ef550-1c33-11eb-3c99-7fde08fab8b1
-# ╠═e35cb870-1c2e-11eb-314c-b1395544a443
+# ╟─9be3f732-1c72-11eb-0e6f-a1d96e46797a
+# ╠═a399febe-1c72-11eb-05ad-85a8182dde8a
