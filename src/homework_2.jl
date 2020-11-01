@@ -25,7 +25,7 @@ md"# Exercise 1"
 # ╔═╡ 41175b30-1c3b-11eb-10d5-91414cfbb583
 function _godunov_solve(
 	flux, start_flux, stop_flux, start, stop, discr, density_0, inverval_borders, 
-	inverval_lengths, times, rho_star
+	interval_lengths, times, rho_star
 )
 	time_diffs = diff(times)
 	
@@ -48,7 +48,7 @@ function rho_star_from_flux(flux, roothint=0)
 	dflux = flux'
 	dflux_inv_0 = find_zero(dflux, roothint)
 
-	return rho_left, rho_right -> begin
+	return (rho_left, rho_right) -> begin
 		s_negative = ((flux(rho_left)-flux(rho_right))<0) ⊻ ((rho_left-rho_right)<0)
 		
 		f_left = dflux(rho_left)
@@ -91,8 +91,8 @@ function discrete_godunov_solve(
 	
 	u_den = unique(density_0)
 	abs_derivatives = abs.(flux'.(u_den))
-	max_time_step = min(interval_lengths)/(2*max(abs_derivatives))
-	rho_star = rho_star_from_flux(flux, u_den(argmin(abs_derivatives))) 
+	max_time_step = minimum(interval_lengths)/(2*maximum(abs_derivatives))
+	rho_star = rho_star_from_flux(flux, u_den[argmin(abs_derivatives)]) 
 	
 	timesteps_required = ceil(time_horizon/max_time_step)
 	time_step = time_horizon/timesteps_required
@@ -116,11 +116,11 @@ time_horizon: calculate flow until time_horizon
 cells: number of cells to approximate density (default 10 000)
 """
 function godunov_solve(
-	flux, start_flux, stop_flux, start, stop, density_0, time_horizon, cells = 10^4
+	flux, start_flux, stop_flux, start, stop, density_0, time_horizon, cells = 10^3
 )
 	L = stop - start
 	Δx = L / cells
-	discr = [ start + Δx/2 + n*Δx for n in 0:cells]
+	discr = [ start + Δx/2 + n*Δx for n in 0:(cells-1)]
 	
 	discrete_godunov_solve(
 		flux, start_flux, stop_flux, start, stop, 
@@ -151,7 +151,7 @@ md"### Time Horizon"
 
 # ╔═╡ 2441afc0-1c53-11eb-2f42-215a417f4dde
 begin
-	flux(ρ) = ρ*(1-̢ρ)
+	flux(ρ) = ρ*(1-ρ)
 	start_flux(t) = flux(ρ_L)
 	stop_flux(t) = flux(ρ_R)
 	start = -5
@@ -166,7 +166,10 @@ end
 false ? 5 : 2
 
 # ╔═╡ 72c664d0-1c2e-11eb-1ddc-b1282c7e8e32
-a =[1,2,3]
+a =[1.0,2,3]
+
+# ╔═╡ 20161530-1c58-11eb-222a-2d4473330f47
+typeof(a)
 
 # ╔═╡ df8ef550-1c33-11eb-3c99-7fde08fab8b1
 Δx = 2
@@ -191,5 +194,6 @@ push!([1,2], [1,2][end] + 0)
 # ╠═2441afc0-1c53-11eb-2f42-215a417f4dde
 # ╠═b43e09c2-1c53-11eb-1d5a-ef39a0013ff9
 # ╠═72c664d0-1c2e-11eb-1ddc-b1282c7e8e32
+# ╠═20161530-1c58-11eb-222a-2d4473330f47
 # ╠═df8ef550-1c33-11eb-3c99-7fde08fab8b1
 # ╠═e35cb870-1c2e-11eb-314c-b1395544a443
