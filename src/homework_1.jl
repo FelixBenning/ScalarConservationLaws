@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.12.4
+# v0.12.6
 
 using Markdown
 using InteractiveUtils
@@ -18,9 +18,6 @@ begin
 	using Plots
 	using PlutoUI
 end
-
-# ╔═╡ acc97ba0-1219-11eb-26cf-3999a572327e
-using Zygote
 
 # ╔═╡ f72e0a00-1208-11eb-3b00-337530f05d71
 import DifferentialEquations: ODEProblem, solve
@@ -104,6 +101,9 @@ md"# Exercise 2"
 
 # ╔═╡ 9ab249b0-1219-11eb-3a5b-917e0a0f82f5
 import Pkg; Pkg.add("Zygote")
+
+# ╔═╡ acc97ba0-1219-11eb-26cf-3999a572327e
+import Zygote
 
 # ╔═╡ b29dbd20-1214-11eb-2317-175b6d323e6b
 """ assume flux concave """
@@ -285,9 +285,9 @@ HTML("<style> main { max-width:1000px; } </style> ")
 # ╠═acc97ba0-1219-11eb-26cf-3999a572327e
 # ╠═b29dbd20-1214-11eb-2317-175b6d323e6b
 # ╟─7559cea0-1222-11eb-26ea-a9621376ac85
-# ╟─865ecd40-1222-11eb-0cdf-e109bea249c0
+# ╠═865ecd40-1222-11eb-0cdf-e109bea249c0
 # ╟─e5587620-1222-11eb-03f3-f5aba45424c9
-# ╟─ed920590-1222-11eb-3667-e1d9354db5b3
+# ╠═ed920590-1222-11eb-3667-e1d9354db5b3
 # ╠═9c554720-1220-11eb-39d1-6103b1cd7a3d
 # ╟─e1a41620-1221-11eb-0d09-773c79dd9728
 # ╟─6b290da2-1223-11eb-1fbf-73eb07577b0d
@@ -309,7 +309,7 @@ HTML("<style> main { max-width:1000px; } </style> ")
 # ╟─7dbb69fe-16b8-11eb-3b02-63b46e8bce9b
 # ╟─96790840-16b8-11eb-3fbc-71c02308bf75
 # ╟─57441200-124e-11eb-2707-67b080d99934
-# ╠═3f027700-124d-11eb-2fb6-5f4409ac3c82
+# ╟─3f027700-124d-11eb-2fb6-5f4409ac3c82
 # ╠═c88f5000-1249-11eb-1428-bb7ca494fd97
 # ╟─1fabc800-124f-11eb-39b1-2708effb11c3
 # ╟─36cc3100-124f-11eb-071c-a3af8e47c1a2
