@@ -15,6 +15,8 @@ end
 
 # ╔═╡ d456a4d0-1c33-11eb-3c70-599cd64c2c83
 begin
+	using Zygote
+	using Plots: plot
 	using Roots: find_zero
 	using PlutoUI
 end
@@ -24,24 +26,29 @@ md"# Exercise 1"
 
 # ╔═╡ 41175b30-1c3b-11eb-10d5-91414cfbb583
 function _godunov_solve(
-	flux, start_flux, stop_flux, start, stop, discr, density_0, inverval_borders, 
-	interval_lengths, times, rho_star
+	flux, start_flux, stop_flux, discr, density_0, interval_lengths, times, rho_star
 )
 	time_diffs = diff(times)
 	
-	den = density_0
-	density = [den]
+
+	density = Array{Float64, 2}(undef, length(density_0), length(times))
+	density[:,1] = density_0
 	for (idx, delta_t) in enumerate(time_diffs)
-		border_fl = [flux(rho_star(x,y)) for (x,y) in zip(den[1:end-1], den[2:end])]
-		prepend!(border_fl, start_flux(times[idx]))
-		append!(border_fl, stop_flux(times[idx]))
+		den = density[:,idx]
+		b_fl = Array{Float64,1}(undef, length(density_0)+1)
+		b_fl[2:end-1]=[flux(rho_star(x,y)) for (x,y) in zip(den[1:end-1], den[2:end])]
 		
-		incr = diff(border_fl)
-		den = density[end] .+ delta_t./interval_lengths .* incr
-		push!(density, den)
+		b_fl[1] = start_flux(times[idx])
+		b_fl[end] = stop_flux(times[idx])
+		
+		incr = -diff(b_fl)
+		density[:,idx+1] = den .+ delta_t./interval_lengths .* incr
 	end
-	return density
+	return (times, discr, density)
 end
+
+# ╔═╡ bce334d0-1c6a-11eb-2ea5-454581da7761
+Array{Float64,2}(undef, 2,3)
 
 # ╔═╡ 216e96c0-1c4c-11eb-0ae0-d7af7fc2f12e
 function rho_star_from_flux(flux, roothint=0)
@@ -97,9 +104,8 @@ function discrete_godunov_solve(
 	timesteps_required = ceil(time_horizon/max_time_step)
 	time_step = time_horizon/timesteps_required
 	times = [n*time_step for n in 0:ceil(time_horizon/time_step)]
-	
 	return _godunov_solve(
-		flux, start_flux, stop_flux, start, stop, discr, density_0, interval_borders, 
+		flux, start_flux, stop_flux, discr, density_0, 
 		interval_lengths, times, rho_star
 	)
 end
@@ -122,7 +128,7 @@ function godunov_solve(
 	Δx = L / cells
 	discr = [ start + Δx/2 + n*Δx for n in 0:(cells-1)]
 	
-	discrete_godunov_solve(
+	return discrete_godunov_solve(
 		flux, start_flux, stop_flux, start, stop, 
 		discr, density_0.(discr), time_horizon
 	)
@@ -141,7 +147,7 @@ md"### $\rho_L$"
 md"### $\rho_R$"
 
 # ╔═╡ ca4820c0-1c53-11eb-39ac-170b702e43b1
-@bind ρ_R Slider(0.05:0.05:1, default = 0.8, show_value=true)
+@bind ρ_R Slider(0.05:0.05:1, default = 0.5, show_value=true)
 
 # ╔═╡ 83e3ff40-1c54-11eb-2810-a5f306cf9557
 md"### Time Horizon"
@@ -159,8 +165,12 @@ begin
 	
 	density_0(x) = x<0 ? ρ_L : ρ_R 
 	
-	godunov_solve(flux, start_flux, stop_flux, start, stop, density_0, time_horizon)
+	times, discr, density = godunov_solve(
+		flux, start_flux, stop_flux, start, stop, density_0, time_horizon)
 end
+
+# ╔═╡ 11073d10-1c5f-11eb-078b-714e16d80478
+plot(discr, density[:,end], linetype=:steppost)
 
 # ╔═╡ b43e09c2-1c53-11eb-1d5a-ef39a0013ff9
 false ? 5 : 2
@@ -181,6 +191,7 @@ push!([1,2], [1,2][end] + 0)
 # ╟─1f4955c0-1b9c-11eb-2e53-c10ebcb1ff07
 # ╠═d456a4d0-1c33-11eb-3c70-599cd64c2c83
 # ╠═41175b30-1c3b-11eb-10d5-91414cfbb583
+# ╠═bce334d0-1c6a-11eb-2ea5-454581da7761
 # ╠═216e96c0-1c4c-11eb-0ae0-d7af7fc2f12e
 # ╠═430325e0-1b9c-11eb-26f7-93813a1b9698
 # ╠═60952d50-1c51-11eb-09ed-115f0cb1f8d7
@@ -188,10 +199,11 @@ push!([1,2], [1,2][end] + 0)
 # ╟─e6a74fc0-1c53-11eb-3bd2-d3eab118a1bd
 # ╟─5fb2f8c0-1c53-11eb-35e0-2b61511a6dbf
 # ╟─db30bdc0-1c53-11eb-028d-e108efac2e3d
-# ╟─ca4820c0-1c53-11eb-39ac-170b702e43b1
+# ╠═ca4820c0-1c53-11eb-39ac-170b702e43b1
 # ╟─83e3ff40-1c54-11eb-2810-a5f306cf9557
 # ╟─8c81f5d0-1c54-11eb-00f3-2fbd04ded608
 # ╠═2441afc0-1c53-11eb-2f42-215a417f4dde
+# ╠═11073d10-1c5f-11eb-078b-714e16d80478
 # ╠═b43e09c2-1c53-11eb-1d5a-ef39a0013ff9
 # ╠═72c664d0-1c2e-11eb-1ddc-b1282c7e8e32
 # ╠═20161530-1c58-11eb-222a-2d4473330f47
