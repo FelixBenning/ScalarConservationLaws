@@ -22,12 +22,6 @@ begin
 	using PlutoUI
 end
 
-# ╔═╡ a5bbcef0-1e83-11eb-2baf-5707eb5996dc
-begin
-	using StatProfilerHTML
-	using Profile
-end
-
 # ╔═╡ 1f4955c0-1b9c-11eb-2e53-c10ebcb1ff07
 md"# Exercise 1"
 
@@ -141,6 +135,22 @@ function junction_flux(junction::SourceJunction, time_idx)
 	return JunctionFlux(Dict{Road,Float64}(), exit_flux)
 end
 
+# ╔═╡ b6d1fd20-1dea-11eb-2e8d-71fe7fb602b7
+function godunov_step(
+	road::Road, influx::Float64, outflux::Float64, density, time_delta
+)
+	flux = Array{Float64,1}(undef, length(density)+1) # n cells have n+1 borders
+	flux[1] = influx
+	flux[end] = outflux
+	flux[2:end-1] = [
+		road.flux(road.rho_star(x,y)) 
+		for (x,y) in zip(density[1:end-1], density[2:end])
+	]
+	
+	increments = -diff(flux) # influx into a cell
+	return density .+ (time_delta ./ road.interval_lengths) .* increments
+end
+
 # ╔═╡ 52974242-1c53-11eb-1002-f125de4500c0
 md"## Beispiel"
 
@@ -165,37 +175,6 @@ md"### Time Horizon"
 # ╔═╡ 3abd2ea0-1df2-11eb-110d-95d6032829e9
 begin
 	flux(ρ) = ρ*(1-ρ)
-	
-	density_0(x) = x<0 ? ρ_L : ρ_R 
-	
-	road = Road(flux, -5, 5, density_0)
-	source_junction = SourceJunction(road, flux(ρ_L))
-	sink_junction = SinkJunction(road, flux(ρ_R))
-	road.entrance = source_junction
-	road.exit = sink_junction
-	network = Network([source_junction, sink_junction], [road])
-end
-
-# ╔═╡ b6d1fd20-1dea-11eb-2e8d-71fe7fb602b7
-function godunov_step(
-	road::Road, influx::Float64, outflux::Float64, density, time_delta
-)
-	flux = Array{Float64,1}(undef, length(density)+1) # n cells have n+1 borders
-	flux[1] = influx
-	flux[end] = outflux
-	flux[2:end-1] = [
-		road.flux(road.rho_star(x,y)) 
-		for (x,y) in zip(density[1:end-1], density[2:end])
-	]
-	
-	increments = -diff(flux) # influx into a cell
-	return density .+ (time_delta ./ road.interval_lengths) .* increments
-end
-
-# ╔═╡ b921f3b0-1e02-11eb-2dae-b5693f16837f
-begin
-	discr = road.discretization
-	density = road.density
 end
 
 # ╔═╡ 9be3f732-1c72-11eb-0e6f-a1d96e46797a
@@ -305,15 +284,25 @@ function godunov_solve(network::Network, time_horizon)
 	return times, network.roads
 end
 
-# ╔═╡ 46091370-1e7c-11eb-0943-ad3fb2982453
-(times, roads) = godunov_solve(network, time_horizon)
-
 # ╔═╡ 11073d10-1c5f-11eb-078b-714e16d80478
 begin
+	density_0(x) = x<0 ? ρ_L : ρ_R 
+	
+	single_road = Road(flux, -5, 5, density_0)
+	source_junction = SourceJunction(single_road, flux(ρ_L))
+	sink_junction = SinkJunction(single_road, flux(ρ_R))
+	single_road.entrance = source_junction
+	single_road.exit = sink_junction
+	network = Network([source_junction, sink_junction], [single_road])
+	
+	(times, roads) = godunov_solve(network, time_horizon)
+	
 	p = plot()
 	for t in 0:time_horizon/3-0.00001:time_horizon
 		plot!(
-			p, discr, density[findfirst(x->x>=t, times)];
+			p, 
+			single_road.discretization, 
+			single_road.density[findfirst(x->x>=t, times)];
 			linetype=:steppost, label="t=$(@sprintf "%0.2f" t)" 
 		)
 	end
@@ -456,9 +445,6 @@ end
 # ╟─83e3ff40-1c54-11eb-2810-a5f306cf9557
 # ╟─8c81f5d0-1c54-11eb-00f3-2fbd04ded608
 # ╠═3abd2ea0-1df2-11eb-110d-95d6032829e9
-# ╠═46091370-1e7c-11eb-0943-ad3fb2982453
-# ╠═a5bbcef0-1e83-11eb-2baf-5707eb5996dc
-# ╠═b921f3b0-1e02-11eb-2dae-b5693f16837f
 # ╠═11073d10-1c5f-11eb-078b-714e16d80478
 # ╟─9be3f732-1c72-11eb-0e6f-a1d96e46797a
 # ╠═3f95ccb0-1dda-11eb-245d-03b638c1c4eb
