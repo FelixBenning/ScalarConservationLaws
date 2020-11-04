@@ -17,9 +17,15 @@ end
 begin
 	using Printf: @sprintf
 	using Zygote
-	using Plots: plot, plot!
+	using Plots: Plots, plot, plot!
 	using Roots: find_zero
 	using PlutoUI
+end
+
+# ╔═╡ a5bbcef0-1e83-11eb-2baf-5707eb5996dc
+begin
+	using StatProfilerHTML
+	using Profile
 end
 
 # ╔═╡ 1f4955c0-1b9c-11eb-2e53-c10ebcb1ff07
@@ -227,11 +233,13 @@ function junction_flux(junction::OneTwoJunction, time_idx)
 	d = [demand(road, time_idx) for road in junction.entrances]
 	s = [supply(road, time_idx) for road in junction.exits]
 	
-	entrance_flux = Array{Float64,1}(undef, length(junction.entrances))
-	
+
 	#abuse one-to-two special case knowledge for solution
-	entrance_flux[1] = min(d[1], minimum(s ./ junction.distribution_matrix[:,1]))
-	exit_flux = junction.distribution_matrix[:,1] .* entrance_flux[1]
+	_entrance_flux = min(d[1], minimum(s ./ junction.distribution_matrix[:,1]))
+	entrance_flux = Dict(junction.entrances[1] => _entrance_flux)
+	
+	_exit_flux = junction.distribution_matrix[:,1] .* _entrance_flux
+	exit_flux = Dict(zip(junction.exits, _exit_flux))
 	##
 	
 	return JunctionFlux(entrance_flux, exit_flux)
@@ -246,17 +254,22 @@ end
 
 # ╔═╡ 431e84a0-1de2-11eb-33ba-b9abe149f86f
 function junction_flux(junction::TwoOneJunction, time_idx)
-	d = [demand(road, time_idx) for road in junction.entrances]
-	s = [supply(road, time_idx) for road in junction.exits]
+	d = Dict(road => demand(road, time_idx) for road in junction.entrances)
+	s = Dict(road => supply(road, time_idx) for road in junction.exits)
 	
 	# abuse two-to-one special case knowledge for solution (Right of way priority)
 	q = junction.right_of_way
-	maximal_flow = min(d[1]+d[2], s[1])
 	
-	entrance_flux[1] = min(d[1], q/(1-q) * d[2], q*maximal_flow)
-	entrance_flux[2] = (1-q)/q * entrance_flux[1]
+	road1 = junction.entrances[1]
+	road2 = junction.entrances[2]
+	maximal_flow = min(d[road1]+d[road2], s[junction.exits[1]])
 	
-	exit_flux = sum(entrance_flux)
+
+	entrance_flux = Dict{Road, Float64}()
+	entrance_flux[road1] = min(d[road1], q/(1-q) * d[road2], q*maximal_flow)
+	entrance_flux[road2] = (1-q)/q * entrance_flux[road1]
+	
+	exit_flux = Dict(junction.exits[1] => sum(values(entrance_flux)))
 	##
 	
 	return JunctionFlux(entrance_flux, exit_flux)
@@ -295,15 +308,12 @@ end
 # ╔═╡ 46091370-1e7c-11eb-0943-ad3fb2982453
 (times, roads) = godunov_solve(network, time_horizon)
 
-# ╔═╡ 6aaa0640-1c6e-11eb-31dd-d7223b7df72a
-idx_of_t(t) = findfirst(x->x>=t,times)
-
 # ╔═╡ 11073d10-1c5f-11eb-078b-714e16d80478
 begin
 	p = plot()
 	for t in 0:time_horizon/3-0.00001:time_horizon
 		plot!(
-			discr, density[idx_of_t(t)];
+			p, discr, density[findfirst(x->x>=t, times)];
 			linetype=:steppost, label="t=$(@sprintf "%0.2f" t)" 
 		)
 	end
@@ -312,6 +322,117 @@ end
 
 # ╔═╡ 7c5be130-1de3-11eb-14c4-21e5ef54a48a
 md"# Exercise 3"
+
+# ╔═╡ 434cb190-1e87-11eb-1e0b-ad631c33c3fc
+md"### One to Two"
+
+# ╔═╡ 7bcc1fe0-1e89-11eb-2264-ed3d48d36b61
+@bind inroad_density Slider(0.05:0.05:1, default=0.2, show_value=true)
+
+# ╔═╡ 98f4b960-1e89-11eb-36b9-0798ba9137d4
+@bind outroad1_density Slider(0.05:0.05:1, default=0.6, show_value=true)
+
+# ╔═╡ a32a3fe0-1e89-11eb-3cb9-431b31bf0e7e
+@bind outroad2_density Slider(0.05:0.05:1, default=0.2, show_value=true)
+
+# ╔═╡ 000ec460-1e8a-11eb-17bc-b54e158049ef
+@bind distribution_param Slider(0.05:0.05:1, default = 0.5, show_value=true)
+
+# ╔═╡ 17081d60-1e8a-11eb-06e8-3f1b3d2b96ba
+distribution_matrix = hcat([distribution_param, 1-distribution_param])
+
+# ╔═╡ 2324f6f0-1e89-11eb-2b8a-9969be5563d9
+begin
+	inroad = Road(flux, 0, 5, x->inroad_density)
+	outroad1 = Road(flux, 0, 5, x->outroad1_density)
+	outroad2 = Road(flux, 0, 5, x->outroad2_density)
+	
+	oneTwoJunc = OneTwoJunction([inroad],[outroad1, outroad2], distribution_matrix)
+	inroadSourceJunc = SourceJunction(inroad, flux(inroad_density))
+	outroad1SinkJunc = SinkJunction(outroad1, flux(outroad1_density))
+	outroad2SinkJunc = SinkJunction(outroad2, flux(outroad2_density))
+	
+	inroad.entrance = inroadSourceJunc
+	inroad.exit = oneTwoJunc
+	
+	outroad1.entrance = oneTwoJunc
+	outroad1.exit = outroad1SinkJunc
+	outroad2.entrance = oneTwoJunc
+	outroad2.exit = outroad2SinkJunc
+	
+	network12 = Network(
+		[oneTwoJunc, inroadSourceJunc, outroad1SinkJunc, outroad2SinkJunc],
+		[inroad, outroad1, outroad2]
+	)
+	
+	(time12, roads12) = godunov_solve(network12, time_horizon)
+	
+	plots12 = Dict{Road, Plots.Plot}()
+	for road in roads12
+		plots12[road] = plot()
+		for t in 0:time_horizon/3-0.00001:time_horizon
+			plot!(
+				road.discretization, road.density[findfirst(x->x>=t, time12)];
+				linetype=:steppost, label="t=$(@sprintf "%0.2f" t)" 
+			)
+		end
+	end
+	plot(plots12[inroad], plots12[outroad1], plots12[outroad2], layout=(1,3))
+end
+
+# ╔═╡ fbb2c4ce-1eab-11eb-2594-ad5750a37647
+md"### Two to One"
+
+# ╔═╡ 3a5836c0-1eac-11eb-0560-2ddffddaf6ee
+@bind inroad1_density Slider(0.05:0.05:1, default=0.2, show_value=true)
+
+# ╔═╡ 4160c040-1eac-11eb-3d0e-9f9b52d40eb1
+@bind inroad2_density Slider(0.05:0.05:1, default=0.6, show_value=true)
+
+# ╔═╡ 4709b9c0-1eac-11eb-29c2-8776d337e6df
+@bind outroad_density Slider(0.05:0.05:1, default=0.6, show_value=true)
+
+# ╔═╡ 4c8588c0-1eac-11eb-2e3a-8fa43d936282
+@bind right_of_way Slider(0.05:0.05:1, default=0.5, show_value=true)
+
+# ╔═╡ 64364ae0-1eac-11eb-26b6-bb5a56b84ab5
+begin
+	inroad1 = Road(flux, 0, 5, x->inroad1_density)
+	inroad2 = Road(flux, 0, 5, x->inroad2_density)
+	outroad = Road(flux, 0, 5, x->outroad_density)
+	
+	twoOneJunc = TwoOneJunction([inroad1, inroad2],[outroad], right_of_way)
+	inroad1SourceJunc = SourceJunction(inroad1, flux(inroad1_density))
+	inroad2SourceJunc = SourceJunction(inroad2, flux(inroad2_density))
+	outroadSinkJunc = SinkJunction(outroad, flux(outroad_density))
+	
+	inroad1.entrance = inroad1SourceJunc
+	inroad1.exit = twoOneJunc
+	inroad2.entrance = inroad2SourceJunc
+	inroad2.exit = twoOneJunc
+	
+	outroad.entrance = twoOneJunc
+	outroad.exit = outroadSinkJunc
+	
+	network21 = Network(
+		[twoOneJunc, inroad1SourceJunc, inroad2SourceJunc, outroadSinkJunc],
+		[inroad1, inroad2, outroad]
+	)
+	
+	(time21, roads21) = godunov_solve(network21, time_horizon)
+	
+	plots21 = Dict{Road, Plots.Plot}()
+	for road in roads21
+		plots21[road] = plot()
+		for t in 0:time_horizon/3-0.00001:time_horizon
+			plot!(
+				road.discretization, road.density[findfirst(x->x>=t, time21)];
+				linetype=:steppost, label="t=$(@sprintf "%0.2f" t)" 
+			)
+		end
+	end
+	plot(plots21[inroad1], plots21[inroad2], plots21[outroad], layout=(1,3))
+end
 
 # ╔═╡ Cell order:
 # ╠═d456a4d0-1c33-11eb-3c70-599cd64c2c83
@@ -336,8 +457,8 @@ md"# Exercise 3"
 # ╟─8c81f5d0-1c54-11eb-00f3-2fbd04ded608
 # ╠═3abd2ea0-1df2-11eb-110d-95d6032829e9
 # ╠═46091370-1e7c-11eb-0943-ad3fb2982453
+# ╠═a5bbcef0-1e83-11eb-2baf-5707eb5996dc
 # ╠═b921f3b0-1e02-11eb-2dae-b5693f16837f
-# ╠═6aaa0640-1c6e-11eb-31dd-d7223b7df72a
 # ╠═11073d10-1c5f-11eb-078b-714e16d80478
 # ╟─9be3f732-1c72-11eb-0e6f-a1d96e46797a
 # ╠═3f95ccb0-1dda-11eb-245d-03b638c1c4eb
@@ -347,3 +468,16 @@ md"# Exercise 3"
 # ╠═efbd74b0-1de1-11eb-2875-d5e772b9625d
 # ╠═431e84a0-1de2-11eb-33ba-b9abe149f86f
 # ╟─7c5be130-1de3-11eb-14c4-21e5ef54a48a
+# ╟─434cb190-1e87-11eb-1e0b-ad631c33c3fc
+# ╠═7bcc1fe0-1e89-11eb-2264-ed3d48d36b61
+# ╠═98f4b960-1e89-11eb-36b9-0798ba9137d4
+# ╠═a32a3fe0-1e89-11eb-3cb9-431b31bf0e7e
+# ╠═000ec460-1e8a-11eb-17bc-b54e158049ef
+# ╠═17081d60-1e8a-11eb-06e8-3f1b3d2b96ba
+# ╠═2324f6f0-1e89-11eb-2b8a-9969be5563d9
+# ╟─fbb2c4ce-1eab-11eb-2594-ad5750a37647
+# ╠═3a5836c0-1eac-11eb-0560-2ddffddaf6ee
+# ╠═4160c040-1eac-11eb-3d0e-9f9b52d40eb1
+# ╠═4709b9c0-1eac-11eb-29c2-8776d337e6df
+# ╠═4c8588c0-1eac-11eb-2e3a-8fa43d936282
+# ╠═64364ae0-1eac-11eb-26b6-bb5a56b84ab5
