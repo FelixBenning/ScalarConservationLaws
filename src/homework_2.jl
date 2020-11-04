@@ -113,30 +113,27 @@ end
 
 # ╔═╡ 2ef05130-1df0-11eb-38bf-9ba9c9fa4590
 struct SourceJunction <: Junction
-	entrance::Road
+	exit::Road
 	constantFlux
 end
 
 # ╔═╡ 9732d6a0-1df0-11eb-17ef-b974a53594d3
 struct SinkJunction <: Junction
-	exit::Road
+	entrance::Road
 	constantFlux
 end
 
 # ╔═╡ 04cdeba0-1df1-11eb-018d-293f4a6bcf1a
-function junction_flux(junction::SourceJunction, time_idx)
+function junction_flux(junction::SinkJunction, time_idx)
 	entrance_flux = Dict(junction.entrance => junction.constantFlux)
 	return JunctionFlux(entrance_flux, Dict{Road,Float64}())
 end
 
 # ╔═╡ 9f89bca0-1df1-11eb-0545-f759d4ab800e
-function junction_flux(junction::SinkJunction, time_idx)
+function junction_flux(junction::SourceJunction, time_idx)
 	exit_flux = Dict(junction.exit => junction.constantFlux)
 	return JunctionFlux(Dict{Road,Float64}(), exit_flux)
 end
-
-# ╔═╡ fb191290-1e0b-11eb-29a2-4bf5f95f7f8d
-ceil(2.0)
 
 # ╔═╡ 52974242-1c53-11eb-1002-f125de4500c0
 md"## Beispiel"
@@ -159,9 +156,6 @@ md"### Time Horizon"
 # ╔═╡ 8c81f5d0-1c54-11eb-00f3-2fbd04ded608
 @bind time_horizon Slider(0.2:0.2:6, default=1, show_value=true)
 
-# ╔═╡ 67700d9e-1df2-11eb-12e9-197754a383c6
-fieldnames(Road)
-
 # ╔═╡ 3abd2ea0-1df2-11eb-110d-95d6032829e9
 begin
 	flux(ρ) = ρ*(1-ρ)
@@ -178,7 +172,7 @@ end
 
 # ╔═╡ b6d1fd20-1dea-11eb-2e8d-71fe7fb602b7
 function godunov_step(
-		road::Road, influx::Float64, outflux::Float64, density, time_delta
+	road::Road, influx::Float64, outflux::Float64, density, time_delta
 )
 	flux = Array{Float64,1}(undef, length(density)+1) # n cells have n+1 borders
 	flux[1] = influx
@@ -192,8 +186,11 @@ function godunov_step(
 	return density .+ (time_delta ./ road.interval_lengths) .* increments
 end
 
-# ╔═╡ 8b551e90-1e15-11eb-0f63-79bdd5759f0e
-
+# ╔═╡ b921f3b0-1e02-11eb-2dae-b5693f16837f
+begin
+	discr = road.discretization
+	density = road.density
+end
 
 # ╔═╡ 9be3f732-1c72-11eb-0e6f-a1d96e46797a
 md"# Exercise2"
@@ -283,9 +280,9 @@ function godunov_solve(network::Network, time_horizon)
 		end
 		
 		for road in network.roads
-			influx = junc_flux[road.entrance].entrances[road]
-			outflux = junc_flux[road.exit].exits[road]
-			road.density[time_idx+1] = godunov_step(
+			influx = junc_flux[road.entrance].exits[road]
+			outflux = junc_flux[road.exit].entrances[road]
+			road.density[time_idx+1]=godunov_step(
 				road, influx, outflux, road.density[time_idx], timestep
 			)
 		end
@@ -295,13 +292,8 @@ function godunov_solve(network::Network, time_horizon)
 	return times, network.roads
 end
 
-# ╔═╡ b921f3b0-1e02-11eb-2dae-b5693f16837f
-begin
-	times, roads = godunov_solve(network, time_horizon)
-	r = roads[1]
-	discr = r.discretization
-	density = r.density
-end
+# ╔═╡ 46091370-1e7c-11eb-0943-ad3fb2982453
+(times, roads) = godunov_solve(network, time_horizon)
 
 # ╔═╡ 6aaa0640-1c6e-11eb-31dd-d7223b7df72a
 idx_of_t(t) = findfirst(x->x>=t,times)
@@ -334,7 +326,6 @@ md"# Exercise 3"
 # ╠═04cdeba0-1df1-11eb-018d-293f4a6bcf1a
 # ╠═9f89bca0-1df1-11eb-0545-f759d4ab800e
 # ╠═047bcba0-1dff-11eb-145e-ddc4933e8826
-# ╠═fb191290-1e0b-11eb-29a2-4bf5f95f7f8d
 # ╠═b6d1fd20-1dea-11eb-2e8d-71fe7fb602b7
 # ╟─52974242-1c53-11eb-1002-f125de4500c0
 # ╟─e6a74fc0-1c53-11eb-3bd2-d3eab118a1bd
@@ -343,12 +334,11 @@ md"# Exercise 3"
 # ╠═ca4820c0-1c53-11eb-39ac-170b702e43b1
 # ╟─83e3ff40-1c54-11eb-2810-a5f306cf9557
 # ╟─8c81f5d0-1c54-11eb-00f3-2fbd04ded608
-# ╠═67700d9e-1df2-11eb-12e9-197754a383c6
 # ╠═3abd2ea0-1df2-11eb-110d-95d6032829e9
+# ╠═46091370-1e7c-11eb-0943-ad3fb2982453
 # ╠═b921f3b0-1e02-11eb-2dae-b5693f16837f
 # ╠═6aaa0640-1c6e-11eb-31dd-d7223b7df72a
 # ╠═11073d10-1c5f-11eb-078b-714e16d80478
-# ╠═8b551e90-1e15-11eb-0f63-79bdd5759f0e
 # ╟─9be3f732-1c72-11eb-0e6f-a1d96e46797a
 # ╠═3f95ccb0-1dda-11eb-245d-03b638c1c4eb
 # ╠═6abbd4b0-1ddb-11eb-027a-7762903061f3
