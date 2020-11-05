@@ -115,12 +115,22 @@ end
 struct SourceJunction <: Junction
 	exit::Road
 	constantFlux
+	SourceJunction(exit, constantFlux) = begin
+		jun = new(exit, constantFlux)
+		exit.entrance = jun
+		return jun
+	end
 end
 
 # ╔═╡ 9732d6a0-1df0-11eb-17ef-b974a53594d3
 struct SinkJunction <: Junction
 	entrance::Road
 	constantFlux
+	SinkJunction(entrance, constantFlux) = begin
+		jun = new(entrance, constantFlux)
+		entrance.exit = jun
+		return jun
+	end
 end
 
 # ╔═╡ 04cdeba0-1df1-11eb-018d-293f4a6bcf1a
@@ -205,6 +215,16 @@ struct OneTwoJunction <: Junction
 	entrances::Array{Road,1}
 	exits::Array{Road,1}
 	distribution_matrix::Array{Float64,2}
+	OneTwoJunction(entrances, exits, distribution_matrix) = begin
+		jun = new(entrances, exits, distribution_matrix)
+		for entr in entrances
+			entr.exit = jun
+		end
+		for exit in exits
+			exit.entrance = jun
+		end
+		return jun
+	end
 end
 
 # ╔═╡ e457cc40-1dd9-11eb-1388-75ea1e06bca7
@@ -229,6 +249,16 @@ struct TwoOneJunction <: Junction
 	entrances::Array{Road,1}
 	exits::Array{Road,1}
 	right_of_way::Float64
+	TwoOneJunction(entrances, exits, right_of_way) = begin
+		jun = new(entrances, exits, right_of_way)
+		for entr in entrances
+			entr.exit = jun
+		end
+		for exit in exits
+			exit.entrance = jun
+		end
+		return jun
+	end
 end
 
 # ╔═╡ 431e84a0-1de2-11eb-33ba-b9abe149f86f
@@ -291,8 +321,6 @@ begin
 	single_road = Road(flux, -5, 5, density_0)
 	source_junction = SourceJunction(single_road, flux(ρ_L))
 	sink_junction = SinkJunction(single_road, flux(ρ_R))
-	single_road.entrance = source_junction
-	single_road.exit = sink_junction
 	network = Network([source_junction, sink_junction], [single_road])
 	
 	(times, roads) = godunov_solve(network, time_horizon)
@@ -341,14 +369,6 @@ begin
 	outroad1SinkJunc = SinkJunction(outroad1, flux(outroad1_density))
 	outroad2SinkJunc = SinkJunction(outroad2, flux(outroad2_density))
 	
-	inroad.entrance = inroadSourceJunc
-	inroad.exit = oneTwoJunc
-	
-	outroad1.entrance = oneTwoJunc
-	outroad1.exit = outroad1SinkJunc
-	outroad2.entrance = oneTwoJunc
-	outroad2.exit = outroad2SinkJunc
-	
 	network12 = Network(
 		[oneTwoJunc, inroadSourceJunc, outroad1SinkJunc, outroad2SinkJunc],
 		[inroad, outroad1, outroad2]
@@ -394,14 +414,6 @@ begin
 	inroad1SourceJunc = SourceJunction(inroad1, flux(inroad1_density))
 	inroad2SourceJunc = SourceJunction(inroad2, flux(inroad2_density))
 	outroadSinkJunc = SinkJunction(outroad, flux(outroad_density))
-	
-	inroad1.entrance = inroad1SourceJunc
-	inroad1.exit = twoOneJunc
-	inroad2.entrance = inroad2SourceJunc
-	inroad2.exit = twoOneJunc
-	
-	outroad.entrance = twoOneJunc
-	outroad.exit = outroadSinkJunc
 	
 	network21 = Network(
 		[twoOneJunc, inroad1SourceJunc, inroad2SourceJunc, outroadSinkJunc],
