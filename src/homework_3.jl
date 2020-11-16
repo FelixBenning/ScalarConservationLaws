@@ -69,6 +69,16 @@ end
 # ╔═╡ 779611f0-283a-11eb-1e09-b9cc51a6f71e
 md"# Exercise 2"
 
+# ╔═╡ 070273f2-276a-11eb-227d-6b3259d00b97
+function density_from_arrivals(arrival_grid, eps)
+	return (x, t) -> begin #ρ_eps density function
+		k = floor(Int, x/eps) # processor index
+		u_k = searchsortedfirst(time_grid[k,:], t) # index is number of goods passed
+		u_k_plus_1 = searchsortedfirst(time_grid[k+1,:], t)
+		return u_k - u_k_plus_1 # work in progress at (virtual) processor k
+	end
+end
+
 # ╔═╡ e1703c6e-283c-11eb-1dc3-b7ce3491cfe3
 md"#### N"
 
@@ -87,17 +97,7 @@ begin
 	f_A(t) = 3/2
 	T = 5
 	eps = 1/K
-	ρ = density_from_arrivals(arrival_grid(f_A, 1/K, v, N, 3, K))
-end
-
-# ╔═╡ 070273f2-276a-11eb-227d-6b3259d00b97
-function density_from_arrivals(arrival_grid)
-	return (x, t) -> begin #ρ_eps density function
-		k = floor(Int, x/eps) # processor index
-		u_k = searchsortedfirst(time_grid[k,:], t) # index is number of goods passed
-		u_k_plus_1 = searchsortedfirst(time_grid[k+1,:], t)
-		return u_k - u_k_plus_1 # work in progress at (virtual) processor k
-	end
+	ρ = density_from_arrivals(arrival_grid(f_A, eps, v, N, 3, K), eps)
 end
 
 # ╔═╡ Cell order:
