@@ -4,6 +4,15 @@
 using Markdown
 using InteractiveUtils
 
+# This Pluto notebook uses @bind for interactivity. When running this notebook outside of Pluto, the following 'mock version' of @bind gives bound variables a default value (instead of an error).
+macro bind(def, element)
+    quote
+        local el = $(esc(element))
+        global $(esc(def)) = Core.applicable(Base.get, el) ? Base.get(el) : missing
+        el
+    end
+end
+
 # ╔═╡ ccd42400-3266-11eb-3d2c-97c96caf3e78
 begin
 	using Printf: @sprintf
@@ -104,7 +113,7 @@ end
 # ╔═╡ 19643c62-34b0-11eb-074d-0356883e7ed2
 function junction_flux(junction::InnerJunction, time_idx, time)
 	total_influx = sum(
-		[line.flux(time, line.density[time_idx]) for line in junction.entrances]
+		[line.flux(time, line.density[time_idx][end]) for line in junction.entrances]
 	)
 	return Dict( line => A(time)*total_influx for (line, A) in junction.distribution)
 end
@@ -210,11 +219,85 @@ begin
 	source = SourceJunction(line0, t->1)
 	sink = SinkJunction(line0)
 	network = ProductionNetwork([source, sink], [line0])
-	godunov_solve(network, 2)
+	godunov_solve(network, 3)
 end
 
+# ╔═╡ 8ecf9f40-34d2-11eb-1949-dbd18aa7422e
+@bind t Slider(0:0.01:3, default=0, show_value=true)
+
 # ╔═╡ 3dcc5770-34bc-11eb-3146-69718faf2fcc
-plot(line0.discretization, line0.density[1001], ylim=(0,1))
+plot(line0.discretization, line0.density[searchsortedlast(line0.times,t)], ylim=(0,1))
+
+# ╔═╡ d5b46d00-34d2-11eb-3dac-834d9e1b2163
+begin
+	line12_1 = ProductionLine(velocity, capacity, 0,1, 0)
+	line12_2 = ProductionLine(velocity, capacity, 0,1, 0)
+	line12_3 = ProductionLine(velocity, capacity, 0,1, 0)
+	source12 = SourceJunction(line12_1, t->1)
+	inner12 = InnerJunction(
+		[line12_1],
+		Dict(line12_2 => t->1/2, line12_3 => t-> 1/2)
+	)
+	sink12_1 = SinkJunction(line12_2)
+	sink12_2 = SinkJunction(line12_3)
+	network12 = ProductionNetwork(
+		[source12, inner12, sink12_1, sink12_2],
+		[line12_1,line12_2, line12_3]
+	)
+	lines12 = godunov_solve(network12, 3)
+end
+
+# ╔═╡ 0499dc10-34d6-11eb-0c7d-1be3fedfe426
+function plot_density(line, time)
+	return plot(
+		line.discretization, 
+		line.density[searchsortedlast(line.times, time)], 
+		ylim=(0,1)
+	)
+end
+
+# ╔═╡ a547e490-34d6-11eb-1caa-cb1331c17411
+@bind t12 Slider(0:0.01:3, default=0, show_value=true)
+
+# ╔═╡ 3354c010-34d6-11eb-1e81-dd5c953baab8
+begin
+	plots12 = Dict{Line, Plots.Plot}()
+	for line in lines12
+		plots12[line] = plot_density(line, t12)
+	end
+	plot(plots12[line12_1], plots12[line12_2], plots12[line12_3], layout=(1,3))
+end
+
+# ╔═╡ f2ca6c10-34d6-11eb-0d3b-85220c6e01e8
+begin
+	line21_1 = ProductionLine(velocity, capacity, 0,1, 0)
+	line21_2 = ProductionLine(velocity, capacity, 0,1, 0)
+	line21_3 = ProductionLine(velocity, capacity, 0,1, 0)
+	source21_1 = SourceJunction(line21_1, t->2)
+	source21_2 = SourceJunction(line21_2, t->1/2)
+	inner21 = InnerJunction(
+		[line21_1, line21_2],
+		Dict(line21_3 => t->1)
+	)
+	sink21 = SinkJunction(line21_3)
+	network21 = ProductionNetwork(
+		[source21_1, source21_2, inner21, sink21],
+		[line21_1,line21_2, line21_3]
+	)
+	lines21 = godunov_solve(network21, 3)
+end
+
+# ╔═╡ a884a390-34d7-11eb-3f7e-5122e7dca87e
+@bind t21 Slider(0:0.01:3, default=0, show_value=true)
+
+# ╔═╡ a4240890-34d7-11eb-2693-2576e502778f
+begin
+	plots21 = Dict{Line, Plots.Plot}()
+	for line in lines21
+		plots21[line] = plot_density(line, t21)
+	end
+	plot(plots21[line21_1], plots21[line21_2], plots21[line21_3], layout=(1,3))
+end
 
 # ╔═╡ Cell order:
 # ╠═ccd42400-3266-11eb-3d2c-97c96caf3e78
@@ -236,4 +319,12 @@ plot(line0.discretization, line0.density[1001], ylim=(0,1))
 # ╠═61b6f860-34b8-11eb-255a-33acc897a55e
 # ╠═0a557960-34b9-11eb-3ee4-0b8048f40a7c
 # ╠═7ce74ede-34b9-11eb-30c2-b7e95de3e854
+# ╠═8ecf9f40-34d2-11eb-1949-dbd18aa7422e
 # ╠═3dcc5770-34bc-11eb-3146-69718faf2fcc
+# ╠═d5b46d00-34d2-11eb-3dac-834d9e1b2163
+# ╠═0499dc10-34d6-11eb-0c7d-1be3fedfe426
+# ╠═a547e490-34d6-11eb-1caa-cb1331c17411
+# ╠═3354c010-34d6-11eb-1e81-dd5c953baab8
+# ╠═f2ca6c10-34d6-11eb-0d3b-85220c6e01e8
+# ╠═a884a390-34d7-11eb-3f7e-5122e7dca87e
+# ╠═a4240890-34d7-11eb-2693-2576e502778f
